@@ -1,10 +1,10 @@
 # College Course Registration System
 
-A Java console project for managing course enrollment, prerequisites, course capacity, waiting lists, and saved registrations. It uses the data structures named in Project Statement 57 and demonstrates topics from the Third Semester Data Structures and Algorithms syllabus.
+A Java desktop application for managing course enrollment, prerequisites, course capacity, waiting lists, and saved registrations. Its Swing frontend is integrated into the single-file Java application.
 
 ## Requirements
 
-- Java Development Kit (JDK) 8 or later
+- Java Development Kit (JDK) 11 or later
 - No external libraries
 
 ## Run
@@ -15,14 +15,20 @@ Open a terminal in this project folder and run:
 run.bat
 ```
 
-On macOS or Linux, run `./run.sh`. You can also compile and launch manually:
+In VS Code, open this folder and choose **Run Course Registration System** from Run and Debug (F5). Install the **Extension Pack for Java** if VS Code asks for Java support.
+
+The app opens its graphical interface when a desktop is available. If started in a headless environment, it uses the console menu. On macOS or Linux, run `./run.sh`. You can also compile and launch manually:
 
 ```text
-javac -d out src/*.java
-java -cp out Main
+javac -encoding UTF-8 -d . src/Main.java
+java -cp . Main
 ```
 
-On first launch, the program creates `courses.txt` and `registrations.txt` in the current project folder if they do not exist. On exit, it saves enrollment, wait-list order, and completed-course records to `registrations.txt`.
+On first launch, the program creates `courses.txt` and `registrations.txt` in the current project folder if they do not exist. Changes are saved to `registrations.txt` after each graphical action and when the app exits.
+
+## Graphical interface
+
+The dashboard displays course capacity, enrolled students, and waiting lists. Use the left-side actions to register a student, mark a course completed, drop a course or waiting-list entry, find a student's registrations, or run the built-in test cases. The tests run against temporary data and do not change saved registrations.
 
 ## Menu
 

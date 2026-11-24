@@ -6,7 +6,7 @@ if defined JAVA_HOME if exist "%JAVA_HOME%\bin\javac.exe" set "JDK_BIN=%JAVA_HOM
 if not defined JDK_BIN for /d %%D in ("%ProgramFiles%\Java\jdk-*") do if exist "%%~fD\bin\javac.exe" set "JDK_BIN=%%~fD\bin"
 if not defined JDK_BIN for /f "delims=" %%J in ('where javac 2^>nul') do if not defined JDK_BIN set "JDK_BIN=%%~dpJ"
 if not defined JDK_BIN (
-  echo Java JDK not found. Install JDK 17 or later and set JAVA_HOME.
+  echo Java JDK not found. Install JDK 11 or later and set JAVA_HOME.
   exit /b 1
 )
 if not exist out mkdir out

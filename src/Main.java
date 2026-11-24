@@ -1,6 +1,15 @@
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GraphicsEnvironment;
+import java.awt.GridLayout;
+import java.awt.event.*;
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 
 public class Main {
  static final Path CF=Paths.get("courses.txt"), RF=Paths.get("registrations.txt");
@@ -13,6 +22,11 @@ public class Main {
 
  public static void main(String[] args)throws Exception {
   load();
+  if(GraphicsEnvironment.isHeadless()){consoleMain();return;}
+  SwingUtilities.invokeLater(()->new RegistrationFrame().setVisible(true));
+ }
+
+ static void consoleMain()throws Exception{
   printBanner("COLLEGE COURSE REGISTRATION SYSTEM");
   System.out.println("  "+capacity.size()+" courses loaded  |  Registration data ready");
   Scanner in=new Scanner(System.in);
@@ -153,6 +167,12 @@ public class Main {
 
  static void runTestCases(){
   printBanner("BUILT-IN TEST CASES");
+  List<String> results=testCaseResults();
+  for(String result:results)System.out.println(result);
+ }
+
+ static List<String> testCaseResults(){
+  List<String> results=new ArrayList<>();
   Map<String,String>oldTitle=new HashMap<>(title);
   Map<String,String>oldNames=new HashMap<>(names);
   Map<String,Integer>oldCapacity=new HashMap<>(capacity);
@@ -164,34 +184,28 @@ public class Main {
   for(String id:prereq.keySet())oldPrereq.put(id,new HashSet<>(prereq.get(id)));
   Map<String,Set<String>>oldDone=new HashMap<>();
   for(String key:done.keySet())oldDone.put(key,new HashSet<>(done.get(key)));
-
-  resetTestData();
-  runCase("Test 1: Normal registration",
-   register("Aman","CS101").startsWith("Registration successful"));
-  runCase("Test 2: Boundary / waiting queue",
-   register("Riya","CS101").startsWith("Registration successful")
-    && register("Karan","CS101").startsWith("Course full")
-    && drop("Aman","CS101").contains("got the seat"));
-  runCase("Test 3: Invalid input",
-   register("Aman","C999").equals("Course C999 not found.")
-    && !unknownName("").isEmpty());
-  resetTestData();
-  runCase("Test 4: Valid prerequisite scenario",
-   register("Priya","CS102").startsWith("Finish these prerequisites")
-    && register("Priya","CS101").startsWith("Registration successful")
-    && complete("Priya","CS101").contains("completed")
-    && register("Priya","CS102").startsWith("Registration successful"));
-
-  title=new HashMap<>(oldTitle);names=new HashMap<>(oldNames);
-  capacity=new HashMap<>(oldCapacity);
-  enrolled=new HashMap<>();
-  for(String id:oldEnrolled.keySet())enrolled.put(id,new ArrayList<>(oldEnrolled.get(id)));
-  waiting=new HashMap<>();
-  for(String id:oldWaiting.keySet())waiting.put(id,new LinkedList<>(oldWaiting.get(id)));
-  prereq=new HashMap<>();
-  for(String id:oldPrereq.keySet())prereq.put(id,new HashSet<>(oldPrereq.get(id)));
-  done=new HashMap<>();
-  for(String key:oldDone.keySet())done.put(key,new HashSet<>(oldDone.get(key)));
+  try{
+   resetTestData();
+   results.add(testResult("Test 1: Normal registration",
+    register("Aman","CS101").startsWith("Registration successful")));
+   results.add(testResult("Test 2: Capacity and waiting queue",
+    register("Riya","CS101").startsWith("Registration successful")
+     && register("Karan","CS101").startsWith("Course full")
+     && drop("Aman","CS101").contains("got the seat")));
+   results.add(testResult("Test 3: Invalid course and name",
+    register("Aman","C999").equals("Course C999 not found.")
+     && !unknownName("").isEmpty()));
+   resetTestData();
+   results.add(testResult("Test 4: Prerequisite completion",
+    register("Priya","CS102").startsWith("Finish these prerequisites")
+     && register("Priya","CS101").startsWith("Registration successful")
+     && complete("Priya","CS101").contains("completed")
+     && register("Priya","CS102").startsWith("Registration successful")));
+   return results;
+  }finally{
+   title=oldTitle;names=oldNames;capacity=oldCapacity;
+   enrolled=oldEnrolled;waiting=oldWaiting;prereq=oldPrereq;done=oldDone;
+  }
  }
 
  static void resetTestData(){
@@ -212,8 +226,8 @@ public class Main {
   try{name(s);return "";}catch(Exception e){return e.getMessage();}
  }
 
- static void runCase(String label,boolean passed){
-  System.out.println((passed?"PASS":"FAIL")+"  "+label);
+ static String testResult(String label,boolean passed){
+  return (passed?"PASS  ":"FAIL  ")+label;
  }
 
  static void load()throws Exception{
@@ -278,5 +292,224 @@ public class Main {
    "MA101|Discrete Mathematics|2|"),StandardCharsets.UTF_8);
   if(!Files.exists(RF))Files.write(RF,List.of(
    "# E|name|course, W|name|course, C|name|course"),StandardCharsets.UTF_8);
+ }
+
+ static class RegistrationFrame extends JFrame{
+  static final Color NAVY=new Color(23,39,65),BLUE=new Color(47,104,210);
+  static final Color BACKGROUND=new Color(244,247,251),MUTED=new Color(102,116,139);
+  DefaultTableModel tableModel;
+  JTable table;
+  JTextArea activity;
+  JLabel courseValue,enrolledValue,waitingValue;
+
+  RegistrationFrame(){
+   super("Course Registration System");
+   setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+   setMinimumSize(new Dimension(900,620));
+   setSize(1100,740);
+   setLocationRelativeTo(null);
+   getContentPane().setBackground(BACKGROUND);
+   setLayout(new BorderLayout());
+   add(header(),BorderLayout.NORTH);
+   add(sidebar(),BorderLayout.WEST);
+   add(dashboard(),BorderLayout.CENTER);
+   addWindowListener(new WindowAdapter(){
+    @Override public void windowClosing(WindowEvent e){closeAndSave();}
+   });
+   refresh();
+  }
+
+  JPanel header(){
+   JPanel p=new JPanel(new BorderLayout(12,0));
+   p.setBackground(NAVY);
+   p.setBorder(BorderFactory.createEmptyBorder(18,24,18,24));
+   JLabel titleLabel=new JLabel("Course Registration");
+   titleLabel.setForeground(Color.WHITE);
+   titleLabel.setFont(new Font("SansSerif",Font.BOLD,22));
+   JLabel sub=new JLabel("Manage enrollment, prerequisites and waiting lists");
+   sub.setForeground(new Color(194,207,228));
+   JPanel titles=new JPanel(new BorderLayout(0,4));
+   titles.setOpaque(false);titles.add(titleLabel,BorderLayout.NORTH);
+   titles.add(sub,BorderLayout.SOUTH);
+   JButton saveButton=button("Save data",BLUE);
+   saveButton.addActionListener(e->saveFromUi());
+   p.add(titles,BorderLayout.WEST);p.add(saveButton,BorderLayout.EAST);
+   return p;
+  }
+
+  JPanel sidebar(){
+   JPanel p=new JPanel(new GridLayout(0,1,0,9));
+   p.setBackground(Color.WHITE);
+   p.setBorder(BorderFactory.createEmptyBorder(20,14,20,14));
+   p.setPreferredSize(new Dimension(210,0));
+   p.add(sideButton("Dashboard",()->refresh()));
+   p.add(sideButton("Register student",()->edit("Register")));
+   p.add(sideButton("Complete course",()->edit("Complete")));
+   p.add(sideButton("Drop / leave queue",()->edit("Drop")));
+   p.add(sideButton("Find student",()->findStudent()));
+   p.add(sideButton("Run test cases",()->showTests()));
+   JLabel note=new JLabel("<html><div style='padding:8px'>Changes are saved to<br>registrations.txt.</div></html>");
+   note.setForeground(MUTED);
+   p.add(note);
+   return p;
+  }
+
+  JPanel dashboard(){
+   JPanel p=new JPanel(new BorderLayout(14,14));
+   p.setBackground(BACKGROUND);
+   p.setBorder(BorderFactory.createEmptyBorder(22,22,18,22));
+   JPanel top=new JPanel(new BorderLayout(0,14));
+   top.setOpaque(false);
+   JLabel heading=new JLabel("Overview");
+   heading.setFont(new Font("SansSerif",Font.BOLD,23));
+   heading.setForeground(NAVY);
+   top.add(heading,BorderLayout.NORTH);
+   JPanel cards=new JPanel(new GridLayout(1,3,12,0));
+   cards.setOpaque(false);
+   courseValue=new JLabel("0");enrolledValue=new JLabel("0");waitingValue=new JLabel("0");
+   cards.add(statCard("COURSES",courseValue));
+   cards.add(statCard("ENROLLED",enrolledValue));
+   cards.add(statCard("WAITING",waitingValue));
+   top.add(cards,BorderLayout.CENTER);
+   p.add(top,BorderLayout.NORTH);
+
+   tableModel=new DefaultTableModel(new Object[]{"Course","Title","Seats","Enrolled","Waiting"},0){
+    @Override public boolean isCellEditable(int row,int column){return false;}
+   };
+   table=new JTable(tableModel);
+   table.setRowHeight(30);
+   table.setFont(new Font("SansSerif",Font.PLAIN,13));
+   table.getTableHeader().setFont(new Font("SansSerif",Font.BOLD,12));
+   table.getTableHeader().setBackground(new Color(231,237,246));
+   table.setSelectionBackground(new Color(222,234,252));
+   JScrollPane tableScroll=new JScrollPane(table);
+   tableScroll.setBorder(BorderFactory.createTitledBorder("Course capacity and registrations"));
+   p.add(tableScroll,BorderLayout.CENTER);
+
+   activity=new JTextArea(4,20);
+   activity.setEditable(false);
+   activity.setLineWrap(true);
+   activity.setWrapStyleWord(true);
+   activity.setFont(new Font("SansSerif",Font.PLAIN,12));
+   activity.setText("Ready. Choose an action from the left menu.");
+   JScrollPane activityScroll=new JScrollPane(activity);
+   activityScroll.setBorder(BorderFactory.createTitledBorder("Activity"));
+   p.add(activityScroll,BorderLayout.SOUTH);
+   return p;
+  }
+
+  JPanel statCard(String title,JLabel value){
+   JPanel card=new JPanel(new BorderLayout(0,7));
+   card.setBackground(Color.WHITE);
+   card.setBorder(BorderFactory.createCompoundBorder(
+    BorderFactory.createLineBorder(new Color(226,232,241)),
+    BorderFactory.createEmptyBorder(12,16,12,16)));
+   JLabel label=new JLabel(title);
+   label.setForeground(MUTED);label.setFont(new Font("SansSerif",Font.BOLD,11));
+   value.setForeground(NAVY);value.setFont(new Font("SansSerif",Font.BOLD,24));
+   card.add(label,BorderLayout.NORTH);card.add(value,BorderLayout.CENTER);
+   return card;
+  }
+
+  JButton button(String text,Color color){
+   JButton b=new JButton(text);
+   b.setForeground(Color.WHITE);b.setBackground(color);
+   b.setFocusPainted(false);b.setFont(new Font("SansSerif",Font.BOLD,12));
+   b.setBorder(BorderFactory.createEmptyBorder(9,14,9,14));
+   return b;
+  }
+
+  JButton sideButton(String text,Runnable action){
+   JButton b=new JButton(text);
+   b.setHorizontalAlignment(SwingConstants.LEFT);
+   b.setForeground(NAVY);b.setBackground(new Color(246,248,252));
+   b.setFocusPainted(false);b.setBorder(BorderFactory.createEmptyBorder(11,12,11,8));
+   b.addActionListener(e->action.run());
+   return b;
+  }
+
+  void refresh(){
+   if(tableModel==null)return;
+   tableModel.setRowCount(0);
+   int totalEnrolled=0,totalWaiting=0;
+   for(String id:new TreeSet<>(capacity.keySet())){
+    List<String> roster=enrolled.get(id);
+    List<String> queue=new ArrayList<>(waiting.get(id));
+    totalEnrolled+=roster.size();totalWaiting+=queue.size();
+    tableModel.addRow(new Object[]{id,title.get(id),
+     seats(id)+" / "+capacity.get(id),join(roster),join(queue)});
+   }
+   courseValue.setText(String.valueOf(capacity.size()));
+   enrolledValue.setText(String.valueOf(totalEnrolled));
+   waitingValue.setText(String.valueOf(totalWaiting));
+  }
+
+  void edit(String action){
+   JTextField studentField=new JTextField(16);
+   JComboBox<String> courseBox=new JComboBox<>(new TreeSet<>(capacity.keySet()).toArray(new String[0]));
+   JPanel form=new JPanel(new GridLayout(2,2,8,10));
+   form.add(new JLabel("Student name"));form.add(studentField);
+   form.add(new JLabel("Course"));form.add(courseBox);
+   int choice=JOptionPane.showConfirmDialog(this,form,action+" course",
+    JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE);
+   if(choice!=JOptionPane.OK_OPTION)return;
+   String message;
+   try{
+    String student=studentField.getText(),course=(String)courseBox.getSelectedItem();
+    if(action.equals("Register"))message=register(student,course);
+    else if(action.equals("Complete"))message=complete(student,course);
+    else message=drop(student,course);
+    save();refresh();log(message);
+    JOptionPane.showMessageDialog(this,message,action,
+     message.startsWith("Registration successful")||message.contains("got the seat")
+      ?JOptionPane.INFORMATION_MESSAGE:JOptionPane.WARNING_MESSAGE);
+   }catch(Exception ex){JOptionPane.showMessageDialog(this,ex.getMessage(),
+    "Could not "+action.toLowerCase(),JOptionPane.ERROR_MESSAGE);}
+  }
+
+  void findStudent(){
+   String student=JOptionPane.showInputDialog(this,"Student name:","Find student",
+    JOptionPane.QUESTION_MESSAGE);
+   if(student==null)return;
+   try{
+    student=name(student);
+    List<String> found=new ArrayList<>();
+    for(String id:new TreeSet<>(capacity.keySet())){
+     if(isEnrolled(id,student))found.add(id+"  |  Enrolled");
+     else if(isWaiting(id,student))found.add(id+"  |  Waiting");
+    }
+    String result=found.isEmpty()?"No registrations for "+student+".":String.join("\n",found);
+    log("Student lookup: "+student);
+    JOptionPane.showMessageDialog(this,result,"Student registrations",
+     JOptionPane.INFORMATION_MESSAGE);
+   }catch(Exception ex){JOptionPane.showMessageDialog(this,ex.getMessage(),
+    "Invalid student",JOptionPane.ERROR_MESSAGE);}
+  }
+
+  void showTests(){
+   List<String> results=testCaseResults();
+   String report=String.join("\n",results);
+   log("Built-in tests completed.");
+   JOptionPane.showMessageDialog(this,report,"Built-in test results",
+    JOptionPane.INFORMATION_MESSAGE);
+  }
+
+  void saveFromUi(){
+   try{save();log("Data saved to registrations.txt.");
+    JOptionPane.showMessageDialog(this,"Registration data saved.","Saved",
+     JOptionPane.INFORMATION_MESSAGE);
+   }catch(Exception ex){JOptionPane.showMessageDialog(this,ex.getMessage(),
+    "Save failed",JOptionPane.ERROR_MESSAGE);}
+  }
+
+  void closeAndSave(){
+   try{save();dispose();}
+   catch(Exception ex){JOptionPane.showMessageDialog(this,ex.getMessage(),
+    "Save failed",JOptionPane.ERROR_MESSAGE);}
+  }
+
+  void log(String message){
+   activity.setText(message+"\n"+activity.getText());
+  }
  }
 }
