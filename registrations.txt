@@ -1,1 +1,1 @@
-# E|student|course = enrolled, W|student|course = waiting, C|student|course = completed
+# E|name|course, W|name|course, C|name|course
