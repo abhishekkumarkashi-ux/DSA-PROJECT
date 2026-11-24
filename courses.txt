@@ -1,0 +1,5 @@
+# ID|title|capacity|prerequisite course IDs (comma separated)
+CS101|Introduction to Programming|2|
+CS102|Data Structures|2|CS101
+CS201|Algorithms|2|CS102
+MA101|Discrete Mathematics|2|
