@@ -4,7 +4,7 @@ A Java console project for managing course enrollment, prerequisites, course cap
 
 ## Requirements
 
-- Java Development Kit (JDK) 17 or later
+- Java Development Kit (JDK) 8 or later
 - No external libraries
 
 ## Run
@@ -67,11 +67,11 @@ C|student name|course ID
 | Project feature | Implementation | Syllabus topic |
 | --- | --- | --- |
 | Course lookup by ID | `HashMap<String, Course>` | Unit 3: hashing and collision resolution |
-| Enrolled student roster | Custom singly linked list | Unit 2: singly linked list |
-| FIFO waiting queue | Custom linked queue | Unit 2: queue and linked-list implementation |
+| Enrolled student roster | `StudentLinkedList.java`, a custom singly linked list | Unit 2: singly linked list |
+| FIFO waiting queue | `StudentQueue.java`, a custom linked queue | Unit 2: queue and linked-list implementation |
 | Course prerequisites | Directed adjacency-list graph, searched with BFS | Unit 3 and lab P13-P15: graph representation and BFS |
 | Capacity and duplicate checks | Roster traversal and available-seat calculation | Unit 1: traversal and algorithm analysis |
-| Sorted course display | Java comparison sort by course ID | Unit 4: sorting algorithm concepts |
+| Sorted course display | Simple bubble sort by course ID | Unit 4: bubble sort |
 | Persistence | Pipe-delimited text file input/output | File handling required by Project Statement 57 |
 
 The chosen project exercises the syllabus topics needed for the assignment. Searching/sorting implementations, trees, and greedy algorithms are separate syllabus units and are not required by this registration-system problem statement.
@@ -81,10 +81,10 @@ The chosen project exercises the syllabus topics needed for the assignment. Sear
 Let `s` be the number of enrolled or waiting students in a course and `v + e` be the number of courses and prerequisite edges reachable from a requested course.
 
 - Course lookup: expected O(1) with the HashMap.
-- Enrolled-list or waiting-queue duplicate check: O(s).
-- Enqueue: O(s) here because duplicate names are checked first; dequeue: O(1).
+- Duplicate checks in a course's list and queue: O(s).
+- Add a student to the linked list: O(s); queue enqueue and dequeue: O(1).
 - Prerequisite validation: O(v + e) for the reachable prerequisite graph.
-- Course listing: O(c log c) to sort `c` courses for predictable display order.
+- Course listing: O(c^2) to bubble sort `c` courses for predictable display order.
 
 ## Assignment test scenarios
 

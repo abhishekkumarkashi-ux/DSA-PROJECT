@@ -21,11 +21,11 @@ The system must look up courses, track each course's enrolled and waiting studen
 | Structure or algorithm | Use in this system |
 | --- | --- |
 | HashMap | Maps a course ID to its course record for expected constant-time lookup. |
-| Singly linked list | Stores each course's enrolled students in enrollment order. |
-| Linked FIFO queue | Stores each course's waiting students; the first student waiting is promoted when a seat opens. |
+| `StudentLinkedList` | Stores each course's enrolled students in enrollment order. |
+| `StudentQueue` | Stores each course's waiting students; the first student waiting is promoted when a seat opens. |
 | Directed adjacency-list graph | Stores edges from a course to the courses that must be completed first. |
 | Breadth-first search | Traverses the complete prerequisite chain and reports any course the student has not completed. |
-| Comparison sort | Sorts course records by ID before displaying them, so the menu output is predictable. |
+| Bubble sort | Sorts course records by ID before displaying them, so the menu output is predictable. |
 
 Course prerequisites form a directed graph. The starter courses progress from `CS101` to `CS102` to `CS201`: `CS102` requires `CS101`, and `CS201` requires `CS102` (and therefore `CS101`). Each graph edge points from a course to one of its prerequisites. The graph traversal starts at the requested course and visits each prerequisite once.
 
@@ -56,10 +56,10 @@ The record prefixes represent enrolled, waiting, and completed courses, respecti
 Let `s` be the number of enrolled or waiting students in a course, `v` and `e` be the reachable prerequisite vertices and edges, and `c` be the number of courses.
 
 - Course lookup: expected O(1).
-- Linked-list or queue duplicate lookup: O(s).
-- Queue enqueue: O(s) because duplicate names are checked before insertion; dequeue: O(1).
+- Duplicate checks in the list and queue: O(s).
+- Add to the linked list: O(s); queue enqueue and dequeue: O(1).
 - Prerequisite check: O(v + e).
-- Course display ordering: O(c log c).
+- Course display ordering with bubble sort: O(c^2).
 
 ## 8. Verification
 
@@ -77,7 +77,7 @@ The program was compiled and run through `run.bat` with JDK 25.0.2. The console 
 
 ## 9. How to run
 
-Install JDK 17 or later and start `run.bat` on Windows, or `./run.sh` on macOS/Linux. The program needs write access to its project folder to save `registrations.txt` when it exits.
+Install JDK 8 or later and start `run.bat` on Windows, or `./run.sh` on macOS/Linux. The program needs write access to its project folder to save `registrations.txt` when it exits.
 
 ## 10. Conclusion
 

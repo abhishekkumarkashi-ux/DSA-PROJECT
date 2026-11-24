@@ -1,122 +1,170 @@
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Application logic and HashMap-based course lookup. */
-public final class CourseRegistrationSystem {
-    private final Map<String, Course> courses = new HashMap<>();
-    private final Map<String, Set<String>> completedByStudent = new HashMap<>();
-    private final Map<String, String> studentNames = new HashMap<>();
-    private final PrerequisiteGraph prerequisiteGraph = new PrerequisiteGraph();
+/** Main rules for course lookup, registration and prerequisites. */
+public class CourseRegistrationSystem {
+    private HashMap<String, Course> courses;
+    private HashMap<String, HashSet<String>> completedCourses;
+    private HashMap<String, String> studentNames;
+    private PrerequisiteGraph prerequisiteGraph;
 
-    public void addCourse(Course course, List<String> prerequisites) {
-        String id = course.getId().toUpperCase();
-        if (courses.putIfAbsent(id, course) != null) {
-            throw new IllegalArgumentException("Duplicate course ID: " + id);
-        }
-        prerequisiteGraph.addCourse(id);
-        for (String prerequisite : prerequisites) prerequisiteGraph.addPrerequisite(id, prerequisite);
+    public CourseRegistrationSystem() {
+        courses = new HashMap<String, Course>();
+        completedCourses = new HashMap<String, HashSet<String>>();
+        studentNames = new HashMap<String, String>();
+        prerequisiteGraph = new PrerequisiteGraph();
     }
 
-    public Course getCourse(String courseId) { return courses.get(courseId.trim().toUpperCase()); }
+    public void addCourse(Course course, List<String> prerequisites) {
+        String courseId = course.getId().toUpperCase();
+        if (courses.containsKey(courseId)) {
+            throw new IllegalArgumentException("Duplicate course ID: " + courseId);
+        }
+        courses.put(courseId, course);
+        prerequisiteGraph.addCourse(courseId);
 
+        for (String prerequisite : prerequisites) {
+            prerequisiteGraph.addPrerequisite(courseId, prerequisite);
+        }
+    }
+
+    public Course findCourse(String courseId) {
+        if (courseId == null) return null;
+        return courses.get(courseId.trim().toUpperCase());
+    }
+
+    /** Returns courses sorted by ID using bubble sort. */
     public List<Course> getCoursesSorted() {
-        List<Course> result = new ArrayList<>(courses.values());
-        result.sort(Comparator.comparing(Course::getId));
-        return result;
+        ArrayList<Course> list = new ArrayList<Course>(courses.values());
+        for (int i = 0; i < list.size() - 1; i++) {
+            for (int j = 0; j < list.size() - 1 - i; j++) {
+                String leftId = list.get(j).getId();
+                String rightId = list.get(j + 1).getId();
+                if (leftId.compareTo(rightId) > 0) {
+                    Course temp = list.get(j);
+                    list.set(j, list.get(j + 1));
+                    list.set(j + 1, temp);
+                }
+            }
+        }
+        return list;
     }
 
     public List<String> getCompletedRecords() {
-        List<String> records = new ArrayList<>();
-        for (Map.Entry<String, Set<String>> entry : completedByStudent.entrySet()) {
-            String name = studentNames.getOrDefault(entry.getKey(), entry.getKey());
-            for (String courseId : entry.getValue()) records.add("C|" + name + "|" + courseId);
+        ArrayList<String> records = new ArrayList<String>();
+        for (String studentKey : completedCourses.keySet()) {
+            HashSet<String> completed = completedCourses.get(studentKey);
+            String studentName = studentNames.get(studentKey);
+            for (String courseId : completed) {
+                records.add("C|" + studentName + "|" + courseId);
+            }
         }
-        records.sort(String::compareToIgnoreCase);
         return records;
     }
 
     public void restoreEnrollment(String courseId, String studentName) {
-        Course course = getCourse(courseId);
-        if (course == null) throw new IllegalArgumentException("Registration references unknown course " + courseId);
-        if (!course.enroll(studentName)) throw new IllegalArgumentException("Duplicate enrollment in " + courseId);
-        if (course.getAvailableSeats() < 0) throw new IllegalArgumentException("Capacity exceeded for " + courseId);
+        Course course = findCourse(courseId);
+        if (course == null) throw new IllegalArgumentException("Unknown course: " + courseId);
+        if (course.getAvailableSeats() == 0) throw new IllegalArgumentException("Course is already full: " + courseId);
+        if (!course.enroll(studentName)) throw new IllegalArgumentException("Duplicate student: " + studentName);
     }
 
     public void restoreWaitlist(String courseId, String studentName) {
-        Course course = getCourse(courseId);
-        if (course == null) throw new IllegalArgumentException("Waitlist references unknown course " + courseId);
-        if (course.getAvailableSeats() > 0) throw new IllegalArgumentException("Waitlist exists while seats are available for " + courseId);
-        if (course.hasStudent(studentName) || !course.addToWaitlist(studentName)) {
-            throw new IllegalArgumentException("Duplicate student in course " + courseId);
-        }
+        Course course = findCourse(courseId);
+        if (course == null) throw new IllegalArgumentException("Unknown course: " + courseId);
+        if (course.getAvailableSeats() > 0) throw new IllegalArgumentException("Course has an available seat: " + courseId);
+        if (course.hasStudent(studentName)) throw new IllegalArgumentException("Duplicate student: " + studentName);
+        course.addToWaitlist(studentName);
     }
 
     public void restoreCompletedCourse(String studentName, String courseId) {
-        if (getCourse(courseId) == null) throw new IllegalArgumentException("Completion references unknown course " + courseId);
-        String key = studentName.toLowerCase();
-        studentNames.putIfAbsent(key, studentName);
-        completedByStudent.computeIfAbsent(key, ignored -> new HashSet<>())
-                .add(courseId.toUpperCase());
+        if (findCourse(courseId) == null) throw new IllegalArgumentException("Unknown course: " + courseId);
+        saveCompletedCourse(studentName, courseId);
     }
 
     public String register(String studentName, String courseId) {
         String name = cleanStudentName(studentName);
-        Course course = getCourse(courseId);
+        Course course = findCourse(courseId);
         if (course == null) return "Course " + courseId.trim().toUpperCase() + " not found.";
         if (course.hasStudent(name)) return name + " is already registered for " + course.getId() + ".";
 
-        List<String> unmet = prerequisiteGraph.findUnmetPrerequisites(
-                course.getId(), completedByStudent.getOrDefault(name.toLowerCase(), Set.of()));
-        if (!unmet.isEmpty()) {
-            return "Prerequisites not completed for " + course.getId() + ": " + String.join(", ", unmet) + ".";
+        HashSet<String> studentCompleted = completedCourses.get(name.toLowerCase());
+        if (studentCompleted == null) studentCompleted = new HashSet<String>();
+        List<String> unmet = prerequisiteGraph.findUnmetPrerequisites(course.getId(), studentCompleted);
+        if (unmet.size() > 0) {
+            return "Finish these prerequisites first: " + joinNames(unmet) + ".";
         }
 
         if (course.getAvailableSeats() > 0) {
             course.enroll(name);
             return "Registration successful: " + name + " -> " + course.getId()
-                    + System.lineSeparator() + "Available seats updated: " + course.getAvailableSeats();
+                    + "\nAvailable seats updated: " + course.getAvailableSeats();
         }
+
         course.addToWaitlist(name);
         return "Course full. " + name + " added to waiting queue.";
     }
 
     public String markCourseCompleted(String studentName, String courseId) {
         String name = cleanStudentName(studentName);
-        Course course = getCourse(courseId);
+        Course course = findCourse(courseId);
         if (course == null) return "Course " + courseId.trim().toUpperCase() + " not found.";
-        if (!course.hasEnrolledStudent(name)) return name + " must be enrolled in " + course.getId() + " before completing it.";
-        String key = name.toLowerCase();
-        studentNames.putIfAbsent(key, name);
-        completedByStudent.computeIfAbsent(key, ignored -> new HashSet<>()).add(course.getId());
+        if (!course.hasEnrolledStudent(name)) {
+            return name + " must be enrolled in " + course.getId() + " before completing it.";
+        }
+
+        saveCompletedCourse(name, course.getId());
         return name + " marked " + course.getId() + " as completed.";
     }
 
     public String drop(String studentName, String courseId) {
         String name = cleanStudentName(studentName);
-        Course course = getCourse(courseId);
+        Course course = findCourse(courseId);
         if (course == null) return "Course " + courseId.trim().toUpperCase() + " not found.";
+
         if (course.hasWaitingStudent(name)) {
-            course.removeWaitingStudent(name);
-            return course.getId() + ": " + name + " removed from the waiting queue.";
+            course.removeFromWaitlist(name);
+            return name + " was removed from the waiting queue.";
         }
         if (!course.removeEnrolled(name)) return name + " is not registered for " + course.getId() + ".";
-        String promoted = course.takeNextFromWaitlist();
-        if (promoted == null) return name + " dropped " + course.getId() + ". Available seats: " + course.getAvailableSeats();
-        course.enroll(promoted);
-        return name + " dropped " + course.getId() + ". " + promoted + " promoted from the waiting queue.";
+
+        String nextStudent = course.takeNextFromWaitlist();
+        if (nextStudent == null) {
+            return name + " dropped " + course.getId() + ". Available seats: " + course.getAvailableSeats();
+        }
+
+        course.enroll(nextStudent);
+        return name + " dropped " + course.getId() + ". " + nextStudent + " got the seat.";
     }
 
-    public void addRestoredCompleted(String studentName, String courseId) { restoreCompletedCourse(studentName, courseId); }
+    private void saveCompletedCourse(String studentName, String courseId) {
+        String key = studentName.toLowerCase();
+        studentNames.put(key, studentName);
+        HashSet<String> completed = completedCourses.get(key);
+        if (completed == null) {
+            completed = new HashSet<String>();
+            completedCourses.put(key, completed);
+        }
+        completed.add(courseId.toUpperCase());
+    }
 
     public static String cleanStudentName(String name) {
-        if (name == null || name.trim().isEmpty() || name.contains("|") || name.contains("\n")) {
+        if (name == null || name.trim().length() == 0 || name.contains("|") || name.contains("\n")) {
             throw new IllegalArgumentException("Enter a student name without the | character.");
         }
         return name.trim();
+    }
+
+    private String joinNames(List<String> names) {
+        String result = "";
+        for (int i = 0; i < names.size(); i++) {
+            if (i > 0) result += ", ";
+            result += names.get(i);
+        }
+        return result;
     }
 }

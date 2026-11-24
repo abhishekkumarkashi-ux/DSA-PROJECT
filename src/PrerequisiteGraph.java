@@ -1,42 +1,56 @@
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 
-/** Directed adjacency-list graph. Each course points to its prerequisites. */
-public final class PrerequisiteGraph {
-    private final Map<String, List<String>> adjacencyList = new HashMap<>();
+/** Graph where each course points to the courses it requires. */
+public class PrerequisiteGraph {
+    private HashMap<String, ArrayList<String>> graph;
+
+    public PrerequisiteGraph() {
+        graph = new HashMap<String, ArrayList<String>>();
+    }
 
     public void addCourse(String courseId) {
-        adjacencyList.computeIfAbsent(courseId.toUpperCase(), ignored -> new ArrayList<>());
+        String id = courseId.toUpperCase();
+        if (!graph.containsKey(id)) graph.put(id, new ArrayList<String>());
     }
 
     public void addPrerequisite(String courseId, String prerequisiteId) {
         addCourse(courseId);
         addCourse(prerequisiteId);
-        List<String> prerequisites = adjacencyList.get(courseId.toUpperCase());
+
+        ArrayList<String> prerequisites = graph.get(courseId.toUpperCase());
         String prerequisite = prerequisiteId.toUpperCase();
         if (!prerequisites.contains(prerequisite)) prerequisites.add(prerequisite);
     }
 
-    /** BFS visits the complete prerequisite chain and returns every unmet course. */
+    /** Breadth-first search checks the requested course and its prerequisite chain. */
     public List<String> findUnmetPrerequisites(String courseId, Set<String> completedCourses) {
-        List<String> unmet = new ArrayList<>();
-        Queue<String> pending = new ArrayDeque<>();
-        Set<String> visited = new HashSet<>();
-        pending.add(courseId.toUpperCase());
-        visited.add(courseId.toUpperCase());
+        ArrayList<String> unmet = new ArrayList<String>();
+        ArrayList<String> queue = new ArrayList<String>();
+        HashSet<String> visited = new HashSet<String>();
 
-        while (!pending.isEmpty()) {
-            String current = pending.remove();
-            for (String prerequisite : adjacencyList.getOrDefault(current, List.of())) {
-                if (!visited.add(prerequisite)) continue;
-                if (!completedCourses.contains(prerequisite)) unmet.add(prerequisite);
-                pending.add(prerequisite);
+        String start = courseId.toUpperCase();
+        queue.add(start);
+        visited.add(start);
+        int next = 0;
+
+        while (next < queue.size()) {
+            String current = queue.get(next);
+            next++;
+
+            ArrayList<String> prerequisites = graph.get(current);
+            if (prerequisites == null) continue;
+
+            for (String prerequisite : prerequisites) {
+                if (!visited.contains(prerequisite)) {
+                    visited.add(prerequisite);
+                    queue.add(prerequisite);
+                    if (!completedCourses.contains(prerequisite)) unmet.add(prerequisite);
+                }
             }
         }
         return unmet;
